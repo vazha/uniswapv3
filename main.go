@@ -106,22 +106,20 @@ func main() {
 
 	// now use Equations from chapter 3.3.3 of document https://atiselsts.github.io/pdfs/uniswap-v3-liquidity-math.pdf
 	// to calculate the amount of the assets in a ticks range
-	Liquidity := new(big.Float).SetInt(liquidity)
-
-	Asset1Amount := new(big.Float).Mul(Liquidity, q64p96ToBigFloat(new(big.Int).Sub(sqrtRatioBX96, sqrtRatioCurrentX96)))
-	Asset1Amount = new(big.Float).Quo(Asset1Amount, q64p96ToBigFloat(sqrtRatioCurrentX96))
-	Asset1Amount = new(big.Float).Quo(Asset1Amount, q64p96ToBigFloat(sqrtRatioBX96))
+	Asset1Amount := utils.GetAmount0Delta(sqrtRatioBX96, sqrtRatioCurrentX96, liquidity, true)
+	Asset1AmountF := new(big.Float).SetInt(Asset1Amount)
 	decimalAsset1 := new(big.Int).SetUint64(uint64(Asset1.Decimals()))
 	decimal1 := new(big.Int).Exp(big.NewInt(10), decimalAsset1, nil)
-	Asset1Amount = new(big.Float).Quo(Asset1Amount, new(big.Float).SetInt(decimal1)) // divide to floating point
+	Asset1AmountFloat := new(big.Float).Quo(Asset1AmountF, new(big.Float).SetInt(decimal1))
 
-	Asset2Amount := new(big.Float).Mul(Liquidity, q64p96ToBigFloat(new(big.Int).Sub(sqrtRatioCurrentX96, sqrtRatioAX96)))
+	Asset2Amount := utils.GetAmount1Delta(sqrtRatioAX96, sqrtRatioCurrentX96, liquidity, true)
+	Asset2AmountF := new(big.Float).SetInt(Asset2Amount)
 	decimalAsset2 := new(big.Int).SetUint64(uint64(Asset2.Decimals()))
 	decimal2 := new(big.Int).Exp(big.NewInt(10), decimalAsset2, nil)
-	Asset2Amount = new(big.Float).Quo(Asset2Amount, new(big.Float).SetInt(decimal2)) // divide to floating point
+	Asset2AmountFloat := new(big.Float).Quo(Asset2AmountF, new(big.Float).SetInt(decimal2))
 
 	fmt.Printf("\nWe can buy %v %s or %v %s and it won't trigger an exit from the current ticks range.\n",
-		Asset1Amount, Asset1.Symbol(), Asset2Amount, Asset2.Symbol())
+		Asset1AmountFloat, Asset1.Symbol(), Asset2AmountFloat, Asset2.Symbol())
 	fmt.Printf("If we do not need to go beyond one tick, then we divide the number by another %v (tick range).",
 		TickSpacing)
 }
@@ -171,14 +169,4 @@ func FindBoundaries(currentTick int64, tickSpacing int64) (int64, int64) {
 	lowerTick := currentTick - remainder
 	upperTick := lowerTick + tickSpacing
 	return lowerTick, upperTick
-}
-
-// q64p96ToBigFloat convert Q64.96 format value to bog.float
-func q64p96ToBigFloat(val *big.Int) *big.Float {
-	floatValue := new(big.Float).SetInt(val)
-
-	// Divide the floatValue by 2^96 to account for Q64.96 scaling
-	pow96 := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(2), big.NewInt(96), nil))
-	floatValue.Quo(floatValue, pow96)
-	return floatValue
 }
