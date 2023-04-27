@@ -122,6 +122,8 @@ func main() {
 
 	fmt.Printf("\nWe can buy %v %s or %v %s and it won't trigger an exit from the current ticks range.\n",
 		Asset1Amount, Asset1.Symbol(), Asset2Amount, Asset2.Symbol())
+	fmt.Printf("If we do not need to go beyond one tick, then we divide the number by another %v (tick range).",
+		TickSpacing)
 }
 
 // PriceFromSqrtX96 print a human-readable value of price Asset1/Asset2 for passed sqrtPrice
