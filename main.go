@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/daoleno/uniswap-sdk-core/entities"
 	"github.com/daoleno/uniswapv3-sdk/constants"
 	"github.com/daoleno/uniswapv3-sdk/examples/contract"
 	"github.com/daoleno/uniswapv3-sdk/examples/helper"
@@ -11,15 +10,23 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"log"
+	"math"
 	"math/big"
 )
 
 var (
 	// Asset1 , Asset2 - Setting pool assets
-	Asset1 = WMATIC
+	//Asset1 = USDC
+	//Asset2 = USDT
+
+	//Asset1 = WBTC
+	//Asset2 = WETH
+
+	Asset1 = MATIC
 	Asset2 = WETH
+
 	// Fee Setting pool fee: FeeLowest - 0.01%, FeeLow - 0.05%, FeeMedium - 0.3%, FeeHigh - 1%
-	Fee = constants.FeeMedium
+	Fee = constants.FeeLow
 )
 
 func main() {
@@ -73,43 +80,66 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	priceA := GetSqr192(sqrtRatioAX96, Asset1, Asset2)
+	priceA := PriceFromSqrtX96(sqrtRatioAX96, int(Asset1.Decimals()), int(Asset2.Decimals())).Text('f', 18)
 	fmt.Printf("sqrtRatioAX96: %v (real price: %s)\n", sqrtRatioAX96.Text(10), priceA)
-	RatioA := new(big.Int).Rsh(sqrtRatioAX96, 64)
 
 	// Calculate root of the price √P
 	sqrtRatioCurrentX96, err := utils.GetSqrtRatioAtTick(int(slot0.Tick.Int64()))
 	if err != nil {
 		log.Fatal(err)
 	}
-	priceCurr := GetSqr192(sqrtRatioCurrentX96, Asset1, Asset2)
-	fmt.Printf("sqrtRatioCurreX96: %v (real price: %s)\n", sqrtRatioCurrentX96, priceCurr)
-	RatioCurrent := new(big.Int).Rsh(sqrtRatioCurrentX96, 64)
+	//sqrtRatioCurrentX96 = slot0.SqrtPriceX96 // todo (gives more precision?)
+	priceC := PriceFromSqrtX96(sqrtRatioCurrentX96, int(Asset1.Decimals()), int(Asset2.Decimals())).Text('f', 18)
+	fmt.Printf("sqrtRatioCX96: %v (real price: %s)\n", sqrtRatioCurrentX96, priceC)
 
 	// Calculate root of the price √pb
 	sqrtRatioBX96, err := utils.GetSqrtRatioAtTick(int(lowerTick))
 	if err != nil {
 		log.Fatal(err)
 	}
-	priceB := GetSqr192(sqrtRatioBX96, Asset1, Asset2)
+	priceB := PriceFromSqrtX96(sqrtRatioBX96, int(Asset1.Decimals()), int(Asset2.Decimals())).Text('f', 18)
 	fmt.Printf("sqrtRatioBX96: %v (real price: %s)\n", sqrtRatioBX96, priceB)
-	RatioB := new(big.Int).Rsh(sqrtRatioBX96, 64)
+
+	if sqrtRatioAX96.Cmp(sqrtRatioBX96) >= 0 {
+		sqrtRatioAX96, sqrtRatioBX96 = sqrtRatioBX96, sqrtRatioAX96
+	}
 
 	// now use Equations from chapter 3.3.3 of document https://atiselsts.github.io/pdfs/uniswap-v3-liquidity-math.pdf
 	// to calculate the amount of the assets in a ticks range
-	temp := new(big.Int).Div(new(big.Int).Sub(RatioB, RatioCurrent), new(big.Int).Mul(RatioCurrent, RatioB))
-	Asset1Amount := new(big.Int).Mul(liquidity, temp)
+	Liquidity := new(big.Float).SetInt(liquidity)
 
-	Asset2Amount := new(big.Int).Mul(liquidity, new(big.Int).Sub(RatioCurrent, RatioA))
+	Asset1Amount := new(big.Float).Mul(Liquidity, q64p96ToBigFloat(new(big.Int).Sub(sqrtRatioBX96, sqrtRatioCurrentX96)))
+	Asset1Amount = new(big.Float).Quo(Asset1Amount, q64p96ToBigFloat(sqrtRatioCurrentX96))
+	Asset1Amount = new(big.Float).Quo(Asset1Amount, q64p96ToBigFloat(sqrtRatioBX96))
+	decimalAsset1 := new(big.Int).SetUint64(uint64(Asset1.Decimals()))
+	decimal1 := new(big.Int).Exp(big.NewInt(10), decimalAsset1, nil)
+	Asset1Amount = new(big.Float).Quo(Asset1Amount, new(big.Float).SetInt(decimal1)) // divide to floating point
 
-	fmt.Printf("\nAvailable assets in ticks range: %s: %v, %s: %v\n", Asset1.Symbol(), Asset1Amount, Asset2.Symbol(), Asset2Amount)
+	Asset2Amount := new(big.Float).Mul(Liquidity, q64p96ToBigFloat(new(big.Int).Sub(sqrtRatioCurrentX96, sqrtRatioAX96)))
+	decimalAsset2 := new(big.Int).SetUint64(uint64(Asset2.Decimals()))
+	decimal2 := new(big.Int).Exp(big.NewInt(10), decimalAsset2, nil)
+	Asset2Amount = new(big.Float).Quo(Asset2Amount, new(big.Float).SetInt(decimal2)) // divide to floating point
+
+	fmt.Printf("\nWe can buy %v %s or %v %s and it won't trigger an exit from the current ticks range.\n",
+		Asset1Amount, Asset1.Symbol(), Asset2Amount, Asset2.Symbol())
 }
 
-// GetSqr192 print a human-readable value of price Asset1/Asset2 for passed Tick
-func GetSqr192(sqrtRatioX96 *big.Int, asset1, asset2 entities.Currency) string {
-	ratioX192 := new(big.Int).Mul(sqrtRatioX96, sqrtRatioX96)
-	price := entities.NewPrice(asset1, asset2, ratioX192, constants.Q192)
-	return price.ToFixed(10)
+// PriceFromSqrtX96 print a human-readable value of price Asset1/Asset2 for passed sqrtPrice
+func PriceFromSqrtX96(sqrtPriceX96 *big.Int, Asset1Decimals, Asset2Decimals int) *big.Float {
+	sqrtPriceX96BigFloat := new(big.Float).SetInt(sqrtPriceX96)
+	const q64_96ScalingFactor = float64(1 << 96)
+
+	// Divide sqrtPriceX96 by the Q64.96 scaling factor
+	sqrtPrice := new(big.Float).Quo(sqrtPriceX96BigFloat, new(big.Float).SetFloat64(q64_96ScalingFactor))
+
+	// Square the obtained value to get the price
+	price := new(big.Float).Mul(sqrtPrice, sqrtPrice)
+
+	// Take into account the decimal places for the given token pair
+	token0DecimalFactor := new(big.Float).SetFloat64(math.Pow10(Asset1Decimals))
+	token1DecimalFactor := new(big.Float).SetFloat64(math.Pow10(Asset2Decimals))
+	price = new(big.Float).Mul(price, new(big.Float).Quo(token0DecimalFactor, token1DecimalFactor))
+	return price
 }
 
 // GetPoolAddress calculates pool address
@@ -139,4 +169,14 @@ func FindBoundaries(currentTick int64, tickSpacing int64) (int64, int64) {
 	lowerTick := currentTick - remainder
 	upperTick := lowerTick + tickSpacing
 	return lowerTick, upperTick
+}
+
+// q64p96ToBigFloat convert Q64.96 format value to bog.float
+func q64p96ToBigFloat(val *big.Int) *big.Float {
+	floatValue := new(big.Float).SetInt(val)
+
+	// Divide the floatValue by 2^96 to account for Q64.96 scaling
+	pow96 := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(2), big.NewInt(96), nil))
+	floatValue.Quo(floatValue, pow96)
+	return floatValue
 }

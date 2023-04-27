@@ -9,7 +9,7 @@ const (
 	PolygonRPC = "https://polygon-rpc.com/"
 
 	PolygonChainID = 137
-	WMaticAddr     = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"
+	MaticAddr      = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"
 	WETHAddr       = "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619"
 	UsdcAddr       = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
 	UsdtAddr       = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"
@@ -26,10 +26,10 @@ const (
 )
 
 var (
-	WMATIC = coreEntities.NewToken(PolygonChainID, common.HexToAddress(WMaticAddr), 18, "Matic", "Matic Network(PolyGon)")
-	AMP    = coreEntities.NewToken(PolygonChainID, common.HexToAddress(AmpAddr), 18, "AMP", "Amp")
-	USDC   = coreEntities.NewToken(PolygonChainID, common.HexToAddress(UsdcAddr), 6, "USDC", "USD Coin")
-	USDT   = coreEntities.NewToken(PolygonChainID, common.HexToAddress(UsdtAddr), 6, "USDT", "Tether USD")
-	WETH   = coreEntities.NewToken(PolygonChainID, common.HexToAddress(WETHAddr), 18, "WETH", "Wrapped ETH")
-	WBTC   = coreEntities.NewToken(PolygonChainID, common.HexToAddress(WBTCAddr), 8, "WBTC", "Wrapped BTC")
+	MATIC = coreEntities.NewToken(PolygonChainID, common.HexToAddress(MaticAddr), 18, "MATIC", "Matic Network(PolyGon)")
+	AMP   = coreEntities.NewToken(PolygonChainID, common.HexToAddress(AmpAddr), 18, "AMP", "Amp")
+	USDC  = coreEntities.NewToken(PolygonChainID, common.HexToAddress(UsdcAddr), 6, "USDC", "USD Coin")
+	USDT  = coreEntities.NewToken(PolygonChainID, common.HexToAddress(UsdtAddr), 6, "USDT", "Tether USD")
+	WETH  = coreEntities.NewToken(PolygonChainID, common.HexToAddress(WETHAddr), 18, "WETH", "Wrapped ETH")
+	WBTC  = coreEntities.NewToken(PolygonChainID, common.HexToAddress(WBTCAddr), 8, "WBTC", "Wrapped BTC")
 )
