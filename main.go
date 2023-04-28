@@ -17,6 +17,9 @@ import (
 var (
 	// Asset1 , Asset2 - Setting pool assets
 	//Asset1 = USDC
+	//Asset2 = WETH
+
+	//Asset1 = USDC
 	//Asset2 = USDT
 
 	//Asset1 = WBTC
@@ -26,7 +29,7 @@ var (
 	Asset2 = WETH
 
 	// Fee Setting pool fee: FeeLowest - 0.01%, FeeLow - 0.05%, FeeMedium - 0.3%, FeeHigh - 1%
-	Fee = constants.FeeLow
+	Fee = constants.FeeMedium
 )
 
 func main() {
@@ -64,7 +67,7 @@ func main() {
 	}
 	fmt.Printf("Liquidity: %v\n", liquidity)
 
-	// retrieving current Tick
+	// retrieving current Tick and price
 	slot0, err := contractPool.Slot0(nil)
 	if err != nil {
 		panic(err)
@@ -83,12 +86,8 @@ func main() {
 	priceA := PriceFromSqrtX96(sqrtRatioAX96, int(Asset1.Decimals()), int(Asset2.Decimals())).Text('f', 18)
 	fmt.Printf("sqrtRatioAX96: %v (real price: %s)\n", sqrtRatioAX96.Text(10), priceA)
 
-	// Calculate root of the price √P
-	sqrtRatioCurrentX96, err := utils.GetSqrtRatioAtTick(int(slot0.Tick.Int64()))
-	if err != nil {
-		log.Fatal(err)
-	}
-	//sqrtRatioCurrentX96 = slot0.SqrtPriceX96 // todo (gives more precision?)
+	// Getting root of the price √P
+	sqrtRatioCurrentX96 := slot0.SqrtPriceX96
 	priceC := PriceFromSqrtX96(sqrtRatioCurrentX96, int(Asset1.Decimals()), int(Asset2.Decimals())).Text('f', 18)
 	fmt.Printf("sqrtRatioCX96: %v (real price: %s)\n", sqrtRatioCurrentX96, priceC)
 
